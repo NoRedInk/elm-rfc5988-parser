@@ -1,4 +1,4 @@
-# Elm RFC5988 Parser
+# Fork of [Elm RFC5988 Parser](https://github.com/knewter/elm-rfc5988-parser)
 
 A (presently woefully incomplete) parser for [the upcoming RFC5988 replacement
 draft](https://mnot.github.io/I-D/rfc5988bis/), written in Elm using

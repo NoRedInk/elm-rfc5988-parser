@@ -96,7 +96,7 @@ linkParam =
         |> andThen
             (\key ->
                 string "\""
-                    *> regex "[a-zA-Z]*"
+                    *> regex "[a-zA-Z0-9-]*"
                     <* string "\""
                     |> map (\value -> ( key, value ))
             )
