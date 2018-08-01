@@ -1,18 +1,31 @@
-module RFC5988 exposing (rfc5988, rfc5988s, Link, emptyLink)
+module RFC5988
+    exposing
+        ( Link
+        , emptyLink
+        , rfc5988
+        , rfc5988s
+        )
 
 {-| A parser for [the draft for the replacement of RFC5988](https://mnot.github.io/I-D/rfc5988bis/)
 
 @docs Link
 
+
 # Constructing links
+
 @docs emptyLink
 
+
 # Parsers
+
 @docs rfc5988, rfc5988s
+
 -}
 
+import Char exposing (toCode)
 import Dict exposing (Dict)
-import Combine exposing ((<*), (*>), parse, Parser, string, map, succeed, between, regex, sepBy, andThen)
+import Parser exposing (..)
+import Parser.LanguageKit
 
 
 {-| Produce an empty link.
@@ -30,7 +43,7 @@ type alias IRI =
     String
 
 
-{-| Defined here: https://mnot.github.io/I-D/rfc5988bis/
+{-| Defined here: <https://mnot.github.io/I-D/rfc5988bis/>
 -}
 type alias Link =
     { context : IRI
@@ -42,9 +55,16 @@ type alias Link =
 
 {-| Parser for a list of links
 -}
-rfc5988s : Parser state (List Link)
+rfc5988s : Parser (List Link)
 rfc5988s =
-    sepBy (whitespace *> string "," <* whitespace) rfc5988
+    Parser.LanguageKit.sequence
+        { start = ""
+        , separator = ","
+        , end = ""
+        , spaces = whitespace
+        , item = rfc5988
+        , trailing = Parser.LanguageKit.Forbidden
+        }
 
 
 {-| Parser for a link
@@ -55,7 +75,7 @@ rfc5988s =
       )
 
 -}
-rfc5988 : Parser state Link
+rfc5988 : Parser Link
 rfc5988 =
     let
         mergeParameter : ( String, String ) -> Link -> Link
@@ -76,37 +96,83 @@ rfc5988 =
         mergeTargetAttribute ( key, value ) acc =
             Dict.insert key value acc
 
-        updateTargetAttributes : Link -> Parser state Link
+        updateTargetAttributes : Link -> Parser Link
         updateTargetAttributes link =
-            sepBy (string ";") linkParam
+            Parser.LanguageKit.sequence
+                { start = ""
+                , separator = ";"
+                , end = ""
+                , spaces =
+                    ignore Parser.zeroOrMore (always False)
+                , item = linkParam
+                , trailing = Parser.LanguageKit.Forbidden
+                }
                 |> map (\keyVals -> mergeParameters keyVals link)
     in
-        (carets (regex "[^>]*")
-            |> map (\uri -> { emptyLink | target = uri })
-        )
-            <* string ";"
-            |> andThen updateTargetAttributes
+    (succeed identity
+        |= map (\uri -> { emptyLink | target = uri }) carets
+        |. symbol ";"
+    )
+        |> andThen updateTargetAttributes
 
 
-linkParam : Parser state ( String, String )
+linkParam : Parser ( String, String )
 linkParam =
-    whitespace
-        *> regex "[a-zA-Z]*"
-        <* string "="
-        |> andThen
-            (\key ->
-                string "\""
-                    *> regex "[a-zA-Z0-9-]*"
-                    <* string "\""
-                    |> map (\value -> ( key, value ))
+    succeed (,)
+        |. whitespace
+        |= keep oneOrMore
+            (any
+                [ isBetween 'a' 'z'
+                , isBetween 'A' 'Z'
+                ]
             )
+        |. symbol "="
+        |. symbol "\""
+        |= keep oneOrMore
+            (any
+                [ isBetween 'a' 'z'
+                , isBetween 'A' 'Z'
+                , isBetween '0' '9'
+                , (==) '-'
+                ]
+            )
+        |. symbol "\""
 
 
-whitespace : Parser state String
-whitespace =
-    regex "[ \t\x0D\n]*"
+any : List (a -> Bool) -> a -> Bool
+any fs x =
+    case fs of
+        [] ->
+            False
+
+        f :: rest ->
+            if f x then
+                f x
+            else
+                any rest x
 
 
-carets : Parser state res -> Parser state res
+isBetween : Char -> Char -> Char -> Bool
+isBetween low high char =
+    let
+        code =
+            toCode char
+    in
+    (code >= toCode low) && (code <= toCode high)
+
+
+carets : Parser String
 carets =
-    between (string "<") (string ">")
+    succeed identity
+        |. symbol "<"
+        |= keep oneOrMore ((/=) '>')
+        |. symbol ">"
+
+
+whitespace : Parser ()
+whitespace =
+    ignore zeroOrMore
+        (\char ->
+            List.any ((==) char)
+                [ ' ', '\t', '\x0D', '\n' ]
+        )
