@@ -109,11 +109,11 @@ rfc5988 =
                 }
                 |> map (\keyVals -> mergeParameters keyVals link)
     in
-    (succeed identity
-        |= map (\uri -> { emptyLink | target = uri }) carets
-        |. symbol ";"
-    )
-        |> andThen updateTargetAttributes
+    andThen updateTargetAttributes
+        (succeed identity
+            |= map (\uri -> { emptyLink | target = uri }) carets
+            |. symbol ";"
+        )
 
 
 linkParam : Parser ( String, String )
