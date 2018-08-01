@@ -165,7 +165,7 @@ carets : Parser String
 carets =
     succeed identity
         |. symbol "<"
-        |= keep oneOrMore ((/=) '>')
+        |= keep zeroOrMore ((/=) '>')
         |. symbol ">"
 
 
