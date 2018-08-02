@@ -22,9 +22,19 @@ module RFC5988
 
 -}
 
-import Char exposing (toCode)
+import Char
 import Dict exposing (Dict)
-import Parser exposing (..)
+import Parser
+    exposing
+        ( (|.)
+        , (|=)
+        , Parser
+        , ignore
+        , keep
+        , succeed
+        , symbol
+        , zeroOrMore
+        )
 import Parser.LanguageKit
 
 
@@ -107,11 +117,11 @@ rfc5988 =
                 , item = linkParam
                 , trailing = Parser.LanguageKit.Forbidden
                 }
-                |> map (\keyVals -> mergeParameters keyVals link)
+                |> Parser.map (\keyVals -> mergeParameters keyVals link)
     in
-    andThen updateTargetAttributes
-        (succeed identity
-            |= map (\uri -> { emptyLink | target = uri }) carets
+    Parser.andThen updateTargetAttributes
+        (succeed (\uri -> { emptyLink | target = uri })
+            |= carets
             |. symbol ";"
         )
 
@@ -120,7 +130,7 @@ linkParam : Parser ( String, String )
 linkParam =
     succeed (,)
         |. whitespace
-        |= keep oneOrMore
+        |= keep zeroOrMore
             (any
                 [ isBetween 'a' 'z'
                 , isBetween 'A' 'Z'
@@ -128,7 +138,7 @@ linkParam =
             )
         |. symbol "="
         |. symbol "\""
-        |= keep oneOrMore
+        |= keep zeroOrMore
             (any
                 [ isBetween 'a' 'z'
                 , isBetween 'A' 'Z'
@@ -156,9 +166,9 @@ isBetween : Char -> Char -> Char -> Bool
 isBetween low high char =
     let
         code =
-            toCode char
+            Char.toCode char
     in
-    (code >= toCode low) && (code <= toCode high)
+    (code >= Char.toCode low) && (code <= Char.toCode high)
 
 
 carets : Parser String
