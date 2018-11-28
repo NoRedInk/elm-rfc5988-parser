@@ -1,4 +1,4 @@
-module Tests exposing (..)
+module Tests exposing (all, basicLink, listOfLinks, listOfLinksString)
 
 import Dict exposing (Dict)
 import Expect
@@ -19,10 +19,10 @@ all =
     describe "Parsing RFC5988 Link Headers"
         [ test "Parsing a basic link header value" <|
             \() ->
-                Expect.equal (Parser.run rfc5988 "<http://urbit.org>; rel=\"start\"") (Ok basicLink)
+                Expect.equal (Parser.run rfc5988 "<http://noredink.com>; rel=\"start\"") (Ok basicLink)
         , test "Parsing a link with some additional target attributes" <|
             \() ->
-                Expect.equal (Parser.run rfc5988 "<http://urbit.org>; rel=\"start\"; borg=\"unimatrixzero\"") (Ok { basicLink | targetAttributes = Dict.insert "borg" "unimatrixzero" basicLink.targetAttributes })
+                Expect.equal (Parser.run rfc5988 "<http://noredink.com>; rel=\"start\"; borg=\"unimatrixzero\"") (Ok { basicLink | targetAttributes = Dict.insert "borg" "unimatrixzero" basicLink.targetAttributes })
         , test "Parsing a list of links" <|
             \() ->
                 Expect.equal (Parser.run rfc5988s listOfLinksString) (Ok listOfLinks)
@@ -45,7 +45,7 @@ listOfLinks =
 basicLink : Link
 basicLink =
     { context = ""
-    , target = "http://urbit.org"
+    , target = "http://noredink.com"
     , relationType = "start"
     , targetAttributes = Dict.empty
     }

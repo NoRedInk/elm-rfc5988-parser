@@ -1,10 +1,8 @@
-module RFC5988
-    exposing
-        ( Link
-        , emptyLink
-        , rfc5988
-        , rfc5988s
-        )
+module RFC5988 exposing
+    ( Link
+    , emptyLink
+    , rfc5988, rfc5988s
+    )
 
 {-| A parser for [the draft for the replacement of RFC5988](https://mnot.github.io/I-D/rfc5988bis/)
 
@@ -24,18 +22,8 @@ module RFC5988
 
 import Char
 import Dict exposing (Dict)
-import Parser
-    exposing
-        ( (|.)
-        , (|=)
-        , Parser
-        , ignore
-        , keep
-        , succeed
-        , symbol
-        , zeroOrMore
-        )
-import Parser.LanguageKit
+import Parser exposing ((|.), (|=), Parser)
+import Set exposing (Set)
 
 
 {-| Produce an empty link.
@@ -67,20 +55,20 @@ type alias Link =
 -}
 rfc5988s : Parser (List Link)
 rfc5988s =
-    Parser.LanguageKit.sequence
+    Parser.sequence
         { start = ""
         , separator = ","
         , end = ""
         , spaces = whitespace
         , item = rfc5988
-        , trailing = Parser.LanguageKit.Forbidden
+        , trailing = Parser.Forbidden
         }
 
 
 {-| Parser for a link
 
-      parse rfc5988 "<http://urbit.org>; rel=\"start\"" ==
-      ( Ok { context = "", target = "http://urbit.org", relationType = "start", targetAttributes = Dict.empty }
+      parse rfc5988 "<http://noredink.com>; rel=\"start\"" ==
+      ( Ok { context = "", target = "http://noredink.com", relationType = "start", targetAttributes = Dict.empty }
       , { input = "", position = 31 }
       )
 
@@ -108,45 +96,38 @@ rfc5988 =
 
         updateTargetAttributes : Link -> Parser Link
         updateTargetAttributes link =
-            Parser.LanguageKit.sequence
+            Parser.sequence
                 { start = ""
                 , separator = ";"
                 , end = ""
-                , spaces =
-                    ignore Parser.zeroOrMore (always False)
+                , spaces = Parser.chompWhile (\_ -> False)
                 , item = linkParam
-                , trailing = Parser.LanguageKit.Forbidden
+                , trailing = Parser.Forbidden
                 }
                 |> Parser.map (\keyVals -> mergeParameters keyVals link)
     in
     Parser.andThen updateTargetAttributes
-        (succeed (\uri -> { emptyLink | target = uri })
+        (Parser.succeed (\uri -> { emptyLink | target = uri })
             |= carets
-            |. symbol ";"
+            |. Parser.symbol ";"
         )
 
 
-linkParam : Parser ( String, String )
+linkParam : Parser.Parser ( String, String )
 linkParam =
-    succeed (,)
+    Parser.succeed Tuple.pair
         |. whitespace
-        |= keep zeroOrMore
-            (any
-                [ isBetween 'a' 'z'
-                , isBetween 'A' 'Z'
-                ]
-            )
-        |. symbol "="
-        |. symbol "\""
-        |= keep zeroOrMore
-            (any
-                [ isBetween 'a' 'z'
-                , isBetween 'A' 'Z'
-                , isBetween '0' '9'
-                , (==) '-'
-                ]
-            )
-        |. symbol "\""
+        |= (any [ isBetween 'a' 'z', isBetween 'A' 'Z' ]
+                |> Parser.chompWhile
+                |> Parser.getChompedString
+           )
+        |. Parser.symbol "="
+        |. Parser.symbol "\""
+        |= (any [ isBetween 'a' 'z', isBetween 'A' 'Z', isBetween '0' '9', (==) '-' ]
+                |> Parser.chompWhile
+                |> Parser.getChompedString
+           )
+        |. Parser.symbol "\""
 
 
 any : List (a -> Bool) -> a -> Bool
@@ -158,6 +139,7 @@ any fs x =
         f :: rest ->
             if f x then
                 f x
+
             else
                 any rest x
 
@@ -173,16 +155,19 @@ isBetween low high char =
 
 carets : Parser String
 carets =
-    succeed identity
-        |. symbol "<"
-        |= keep zeroOrMore ((/=) '>')
-        |. symbol ">"
+    Parser.succeed identity
+        |. Parser.symbol "<"
+        |= Parser.getChompedString (Parser.chompUntil ">")
+        |. Parser.symbol ">"
 
 
 whitespace : Parser ()
 whitespace =
-    ignore zeroOrMore
-        (\char ->
-            List.any ((==) char)
-                [ ' ', '\t', '\x0D', '\n' ]
-        )
+    Parser.chompWhile (\c -> Set.member c whitespaceChars)
+        |> Parser.getChompedString
+        |> Parser.map (\_ -> ())
+
+
+whitespaceChars : Set Char
+whitespaceChars =
+    Set.fromList [ ' ', '\t', '\u{000D}', '\n' ]

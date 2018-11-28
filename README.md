@@ -11,8 +11,8 @@ There are some examples in the test suite, but here's one:
 
 ```elm
 Expect.equal
-  (parse rfc5988 "<http://urbit.org>; rel=\"start\"")
-  ( Ok { context = "", target = "http://urbit.org", relationType = "start", targetAttributes = Dict.empty }
+  (parse rfc5988 "<http://noredink.com>; rel=\"start\"")
+  ( Ok { context = "", target = "http://noredink.com", relationType = "start", targetAttributes = Dict.empty }
   , { input = "", position = 31 }
   )
 ```
